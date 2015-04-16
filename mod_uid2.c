@@ -106,6 +106,7 @@ typedef struct
     time_t expires;
     int p3p_enabled;
     char *p3p_header;
+    apr_table_t *vars;
 } cookie_dir_rec;
 
 #define OVER(field) (over->field?over->field:base->field)
@@ -134,6 +135,9 @@ static void make_cookie(request_rec *r, cookie_dir_rec *dcfg)
     time_t when;
     struct tm *tms;
     int len;
+
+    apr_table_t *vars = dcfg->vars;
+    apr_table_t *e = r->subprocess_env;
 
     bzero(lk,sizeof(lk));
     // init
@@ -193,6 +197,11 @@ static void make_cookie(request_rec *r, cookie_dir_rec *dcfg)
 	((dcfg->p3p_enabled == ON && cdomain) ||dcfg->p3p_enabled == ALWAYS ))
 	apr_table_setn(r->headers_out,"P3P",p3ph);
 
+    if (cookbuf) {
+        apr_table_setn(vars, "HTTP_MOD_UID_NEWCOOKIE", cookbuf);
+        r->subprocess_env = apr_table_overlay(r->pool, e, vars);
+    }
+
     return;
 }
 
@@ -202,6 +211,7 @@ static int spot_cookie(request_rec *r)
 						&uid2_module);
     char *cptr;
     char *value;
+    char *cookbuf;
     char *cname = dcfg->cookie_name ? dcfg->cookie_name : DEF_NAME;
 
     if ((cptr = (char*)apr_table_get(r->headers_in, "Cookie")))
@@ -283,6 +293,7 @@ static int spot_cookie(request_rec *r)
     if (dcfg->enabled == ON || !dcfg->enabled) /* default is to set
 						  cookie */
 	make_cookie(r,dcfg);
+
     return DECLINED;
 }
 
@@ -446,6 +457,7 @@ merge_uid_dir (apr_pool_t *p, void *basev, void *overridesv)
     dcfg->service	= OVER(service);
     dcfg->p3p_enabled	= OVER(p3p_enabled);
     dcfg->p3p_header	= OVER(p3p_header);
+    dcfg->vars          = apr_table_make(p, 10);
     return dcfg;
 }
 
@@ -462,6 +474,7 @@ static void *make_uid_dir(apr_pool_t *p, char *d)
     dcfg->service	= 0;
     dcfg->p3p_enabled	= 0;
     dcfg->p3p_header	= NULL;
+    dcfg->vars          = apr_table_make(p, 10);
     return dcfg;
 }
 
