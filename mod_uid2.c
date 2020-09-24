@@ -198,7 +198,9 @@ static void make_cookie(request_rec *r, cookie_dir_rec *dcfg)
 	apr_table_setn(r->headers_out,"P3P",p3ph);
 
     if (cookbuf) {
+        sprintf(cbuf, "%d", len);
         apr_table_setn(vars, "HTTP_MOD_UID_NEWCOOKIE", cookbuf);
+        apr_table_setn(vars, "HTTP_MOD_UID_LEN", cbuf);
         r->subprocess_env = apr_table_overlay(r->pool, e, vars);
     }
 
